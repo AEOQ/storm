@@ -53,7 +53,7 @@
         result && Q('table').replaceChildren(...[...result]
             .sort(([, quad1], [, quad2]) => quad1 > quad2 ? 1 : quad1 < quad2 ? -1 : 0)
             .map(([tc, quads]) => 
-                E('tr', [E('td', tc), E('td', quads.map(q => ({E: '🔼', S: '⏫', N: '🔽', W: '⏬'})[q]).join(''))], {
+                E('tr', [E('td', tc), E('td', quads)], {
                     onclick: ev => {
                         ev.target.closest('tr').classList.toggle('showing');
                         Q(`[id='${tc}']`).classList.toggle('showing');
@@ -84,7 +84,7 @@
         let cpa = Math.min(...[...report.values()].map(km => Math.round(km ?? 999)));
         let filtered = report.filter(([dir, km]) => km && (km <= form.south.value || km / cpa < form.ratio.value));
         filtered.North && (filtered = filtered.filter(([dir, km]) => km && (km <= form.north.value || km / cpa < form.ratio.value)));
-        return `${[...filtered.keys().map(q => q[0])]}`;
+        return [...filtered.keys().map(q => ({E: '🔼', S: '⏫', N: '🔽', W: '⏬'})[q[0]])].join('');
     }
     let classify = (points, bearings) => {
         let R = 6371;
