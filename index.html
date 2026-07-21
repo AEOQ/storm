@@ -8,7 +8,7 @@
     <b style="--t: 250deg">🔽</b>
     <div id="north"></div><div id="south"></div>
     <svg viewBox="17.302 109.174 10 10">
-        <marker id="point" viewBox="-1 -1 2 2"><circle cx="0" cy="0" r=".5"></circle></marker>
+        <marker id="point" viewBox="-1 -1 2 2"><circle cx="0" cy="0" r=".5"/></marker>
         <circle/><text x="22.302" y="113.724">50</text>
         <circle/><text x="22.302" y="113.274">100</text>
         <circle/><text x="22.302" y="112.374">200</text>
@@ -53,7 +53,7 @@
         result && Q('table').replaceChildren(...[...result]
             .sort(([, quad1], [, quad2]) => quad1 > quad2 ? 1 : quad1 < quad2 ? -1 : 0)
             .map(([tc, quads]) => 
-                E('tr', [E('td', tc), E('td', quads)], {
+                E('tr', [E('td', tc), E('td', quads.map(q => ({E: '🔼', S: '⏫', N: '🔽', W: '⏬'})[q]).join(''))], {
                     onclick: ev => {
                         ev.target.closest('tr').classList.toggle('showing');
                         Q(`[id='${tc}']`).classList.toggle('showing');
@@ -80,33 +80,33 @@
             North: [form.W.value+315-r,               45-r]
         });
     }
-    let filter = (classified) => {
-        let cpa = Math.min(...[...classified.values()].map(km => Math.round(km ?? 999)));
-        let filtered = classified.filter(([dir, km]) => km && (km <= form.south.value || km / cpa < form.ratio.value));
+    let filter = report => {
+        let cpa = Math.min(...[...report.values()].map(km => Math.round(km ?? 999)));
+        let filtered = report.filter(([dir, km]) => km && (km <= form.south.value || km / cpa < form.ratio.value));
         filtered.North && (filtered = filtered.filter(([dir, km]) => km && (km <= form.north.value || km / cpa < form.ratio.value)));
         return `${[...filtered.keys().map(q => q[0])]}`;
     }
     let classify = (points, bearings) => {
         let R = 6371;
-        let toRadians = (degrees) => degrees * Math.PI / 180;
         let output = { North: [], South: [], East: [], West: [] };
-
-        let lat1Rad = toRadians(22.302), lon1Rad = toRadians(114.174);
+        
+        let toRadians = deg => deg * Math.PI / 180;
+        let hko = [22.302, 114.174].map(toRadians);
         let cpa = 800;
         points.forEach(point => {
-            let lat2Rad = toRadians(point[0]), lon2Rad = toRadians(point[1]);
-            let dLat = lat2Rad - lat1Rad, dLon = lon2Rad - lon1Rad;
+            point = point.map(toRadians);
+            let diff = [point[0] - hko[0], point[1] - hko[1]];
 
-            let a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.sin(dLon / 2) ** 2;
+            let a = Math.sin(diff[0] / 2) ** 2 + Math.cos(hko[0]) * Math.cos(point[0]) * Math.sin(diff[1] / 2) ** 2;
             let c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            let distance = Math.round(R * c);
-            distance < cpa && (cpa = distance);
+            let km = Math.round(R * c);
+            km < cpa && (cpa = km);
 
-            let y = Math.sin(dLon) * Math.cos(lat2Rad);
-            let x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+            let y = Math.sin(diff[1]) * Math.cos(point[0]);
+            let x = Math.cos(hko[0]) * Math.sin(point[0]) - Math.sin(hko[0]) * Math.cos(point[0]) * Math.cos(diff[1]);
             let bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
             let dir = bearings.find(([dir, [from, to]]) => bearing < to && bearing >= from)?.[0] ?? 'North';
-            output[dir].push(distance);
+            output[dir].push(km);
         });
         return new O(output).map(([quad, dists]) => [quad, Math.min(...dists)]);
     }
