@@ -1,6 +1,6 @@
 html {
     background: black; color: white;
-    --light: turquoise;
+    --theme: oklch(.5 .5 230);
 }
 body {
     display: grid; grid-template: 'radar list' 30em 'form list' / 30em min-content;
@@ -27,31 +27,66 @@ figure {
         );
         transform: rotate(calc(45deg + var(--rotate,0)*-1deg));
     }
-    svg {
-        transform: rotate(-90deg);
-        overflow: hidden;
-        border-radius: 99em;
+    div {
+        position: absolute; border-radius: 99em;
+        background: var(--theme); opacity: .5;
+        transform: rotate(calc(45deg + var(--rotate,0)*-1deg));
+    }
+    #north {
+        inset: calc((var(--north)/-11 + 50)*1%);   
+        background: conic-gradient(
+            var(--theme) 0 calc(90deg + var(--E,0)*1deg), 
+            transparent calc(90deg + var(--E,0)*1deg) calc(270deg + var(--W,0)*1deg),
+            var(--theme) calc(270deg + var(--W,0)*1deg) 0
+        );     
+    }
+    #south {
+        inset: calc((var(--south)/-11 + 50)*1%);   
+        background: conic-gradient(
+            transparent 0 calc(90deg + var(--E,0)*1deg), 
+            var(--theme) calc(90deg + var(--E,0)*1deg) calc(270deg + var(--W,0)*1deg),
+            transparent calc(270deg + var(--W,0)*1deg) 0
+        );
+    }
 
-        text {
-            font-size: .4px;
-            text-anchor: middle;
-            transform: rotate(90deg); transform-origin: 22.302px 114.174px;
-        }
-        path {
-            stroke-width: .05; stroke: black;
-            fill: none;
-            marker-start: url(#point); marker-mid: url(#point); marker-end: url(#point);
+    b {
+        font-size: 2em;
+        --r: 50%;
+        position: absolute; transform: translate(-50%, -50%);
+        left: calc(50% + var(--r) * cos(var(--t)) / 2); 
+        top:  calc(50% + var(--r) * sin(var(--t)) / 2);
+    }
+}
+svg {
+    transform: rotate(-90deg);
+    overflow: hidden;
+    border-radius: 99em;
+    --hko-x: 22.302px; --hko-y: 114.174px;
 
-            &:not(.showing) {display: none;}
-            &:not([id]) {stroke: coral;}
-        }
-        #point {
-            fill: brown;
-        }
-        &>circle {
-            stroke: blue; stroke-width: .025;
-            fill: none;
-        }
+    path {
+        stroke: black; stroke-width: .05; 
+        fill: none;
+        marker-start: url(#point); marker-mid: url(#point); marker-end: url(#point);
+
+        &:not(.showing) {display: none;}
+        &:not([id]) {stroke: coral;}
+    }
+    #point {
+        fill: brown;
+    }
+    circle {
+        stroke: var(--theme); stroke-width: .025;
+        fill: none;
+        cx: var(--hko-x); cy: var(--hko-y);
+        r: calc(round(down,(sibling-index() - 1)/2)*.9px);
+
+        &:nth-of-type(1) {r: 0.45;}
+    }
+    text {
+        font-size: .4px;
+        text-anchor: middle; dominant-baseline: central;
+        x: var(--hko-x); y: calc(var(--hko-y) - sibling-index()/2*.9px);
+        transform: rotate(90deg); transform-origin: var(--hko-x) var(--hko-y);
     }
 }
 form {
