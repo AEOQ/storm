@@ -64,7 +64,7 @@
             )
         );
     }
-    fetch('./lens.json').then(resp => resp.json()).then(d => {
+    fetch('./ilens.json').then(resp => resp.json()).then(d => {
         data = new O(d);
         data.each(([tc, points]) => Q('svg').append(
             E('path', {d: `M${points.join('L')}`, id: tc}),
