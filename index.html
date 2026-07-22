@@ -19,7 +19,7 @@
 </figure>
 <form>
     <fieldset>
-        <drag-knob range="0/45/5" value="10" name="rotate" title="rotate"></drag-knob>
+        <drag-knob range="-15/35/5" value="10" name="rotate" title="rotate"></drag-knob>
         <drag-knob range="-15/15/5/°" value="0" name="E" title="🔼"><output class="center"></output></drag-knob>
         <drag-knob range="-15/15/5/°" value="0" name="S" title="⏫"><output class="center"></output></drag-knob>
         <drag-knob range="-15/15/5/°" value="0" name="W" title="⏬"><output class="center"></output></drag-knob><br>
@@ -55,10 +55,10 @@
         bearings.each(([dir, [from, to]]) => 
             form[dir] && (form[dir].Q('output').value = to - from < 0 ? to - from + 360 : to - from)
         );
-        let report = data.points?.map(([storm, points]) => [storm, putQuadrants(points, bearings)]);
+        let report = data.points?.map(([storm, points]) => [console.log(storm)||storm, putQuadrants(points, bearings)]);
         data.initialPredicted ??= report;
         report && Q('table').replaceChildren(...[...report]
-            .sort(([, gales1], [, gales2]) => gales1 > gales2 ? 1 : gales1 < gales2 ? -1 : 0)
+            .sort(([, sig1], [, sig2]) => sig1 > sig2 ? 1 : sig1 < sig2 ? -1 : 0)
             .map(([storm, quads]) => {
                 let actual = data.actualSignals[storm], error = false;
                 /\/$/.test(actual) && ([error, actual] = [true, actual.replace('/', '')]);
@@ -74,6 +74,7 @@
                 ]);
             })
         );
+        console.log(Q('td:last-child:not(:empty)', []).length)
     }
     Q('table').onclick = ev => {
         let tr = ev.target.closest('tr');
