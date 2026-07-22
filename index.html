@@ -55,7 +55,7 @@
         bearings.each(([dir, [from, to]]) => 
             form[dir] && (form[dir].Q('output').value = to - from < 0 ? to - from + 360 : to - from)
         );
-        let report = data.points?.map(([storm, points]) => [console.log(storm)||storm, putQuadrants(points, bearings)]);
+        let report = data.points?.map(([storm, points]) => [storm, putQuadrants(points, bearings)]);
         data.initialPredicted ??= report;
         report && Q('table').replaceChildren(...[...report]
             .sort(([, sig1], [, sig2]) => sig1 > sig2 ? 1 : sig1 < sig2 ? -1 : 0)
