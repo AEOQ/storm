@@ -20,94 +20,113 @@
 <form>
     <fieldset>
         <drag-knob range="0/45/5" value="10" name="rotate" title="rotate"></drag-knob>
-        <drag-knob range="-15/15/5/°" value="0" name="E" title="E"><output class="center"></output></drag-knob>
-        <drag-knob range="-15/15/5/°" value="0" name="S" title="S"><output class="center"></output></drag-knob>
-        <drag-knob range="-15/15/5/°" value="0" name="W" title="W"><output class="center"></output></drag-knob><br>
+        <drag-knob range="-15/15/5/°" value="0" name="E" title="🔼"><output class="center"></output></drag-knob>
+        <drag-knob range="-15/15/5/°" value="0" name="S" title="⏫"><output class="center"></output></drag-knob>
+        <drag-knob range="-15/15/5/°" value="0" name="W" title="⏬"><output class="center"></output></drag-knob><br>
         <drag-knob range="1.01/1.5/.01" class="fine" value="1.11" title="區CPA除總CPA比" name="ratio"></drag-knob>
         <drag-knob range="50/150/5/ km" value="150" title="南掠烈風必然距離" name="south"></drag-knob>
         <drag-knob range="50/150/5/ km" value="75" title="北掠烈風必然距離" name="north"></drag-knob>
     </fieldset>
-    <textarea></textarea>
+    <output name="signals"></output>
+    <textarea name="current"></textarea>
 </form>
 <table></table>
 
 <script type="module">
     import {A,E,O,Q} from 'https://aeoq.github.io/AEOQ.mjs'
-    let data, init, form = Q('form'), fig = E(Q('figure'));
+    let data = {}, form = Q('form'), fig = E(Q('figure'));
+    let signals = {E: '🔼', S: '⏫', W: '⏬', N: '🔽'};
     Q('textarea').value = localStorage.getItem('current') || '';
     form.oninput = ev => {
+        if (!data.points) return;
+        let bearings = getBearings();
         if (ev?.target.tagName == 'TEXTAREA') {
             localStorage.setItem('current', ev.target.value);
             Q('svg>path:not([id])')?.remove();
-            let points = ev.target.value.split('\n').filter(row => /^[.\d]+ [.\d]+$/.test(row)).map(row => row.split(' '));
-            form.title = filter(classify(points, getBearings()));
-            return Q('svg').append(E('path.showing', {d: `M${points.join('L')}`}));
+            let points = ev.target.value.split('\n').filter(row => /^[.\d]+ [.\d]+$/.test(row))
+                .map(row => row.split(' ')).map(([x, y]) => [
+                    x.includes('.') ? x : x.replace(/(?<=^\d{2})/, '.'),
+                    y.includes('.') ? y : y.replace(/(?<=^\d{3})/, '.')
+                ]);
+            Q('svg').append(E('path.showing', {d: `M${points.join('L')}`}));
+            return form.signals.value = [...putQuadrants(calculate(points), bearings)].map(q => signals[q]).join('');
         }
         [...new FormData(form)].forEach(([n, v]) => fig.set({[`--${n}`]: v}));
-        let bearings = getBearings();
         bearings.each(([dir, [from, to]]) => 
-            form[dir[0]] && (form[dir[0]].Q('output').value = to - from < 0 ? to - from + 360 : to - from)
+            form[dir] && (form[dir].Q('output').value = to - from < 0 ? to - from + 360 : to - from)
         );
-        let result = data?.map(([tc, points]) => [tc, filter(classify(points, bearings))]);
-        init ??= result;
-        result && Q('table').replaceChildren(...[...result]
-            .sort(([, quad1], [, quad2]) => quad1 > quad2 ? 1 : quad1 < quad2 ? -1 : 0)
-            .map(([tc, quads]) => 
-                E('tr', [E('td', tc), E('td', quads)], {
-                    onclick: ev => {
-                        ev.target.closest('tr').classList.toggle('showing');
-                        Q(`[id='${tc}']`).classList.toggle('showing');
-                    },
-                    classList: Q(`[id='${tc}'].showing`) ? 'showing' : '',
-                    ...quads != init[tc] ? {style: {color: 'yellow'}} : {}
-                })
-            )
+        let report = data.points?.map(([storm, points]) => [storm, putQuadrants(points, bearings)]);
+        data.initialPredicted ??= report;
+        report && Q('table').replaceChildren(...[...report]
+            .sort(([, gales1], [, gales2]) => gales1 > gales2 ? 1 : gales1 < gales2 ? -1 : 0)
+            .map(([storm, quads]) => {
+                let actual = data.actualSignals[storm], error = false;
+                /\/$/.test(actual) && ([error, actual] = [true, actual.replace('/', '')]);
+                let tr = E('tr', {classList: [
+                    Q(`[id='${storm}'].showing`) ? 'showing' : '',
+                    quads != data.initialPredicted[storm] ? 'changed' : '',
+                    quads != actual ? 'deviated' : '',
+                ]});
+                return E(tr).set([
+                    E('td', storm), 
+                    E('td', [...quads].map(q => signals[q])),
+                    E('td', {classList: error ? 'error' : ''}, actual && tr.matches('.deviated') ? [...actual].map(q => signals[q]) : '')
+                ]);
+            })
         );
     }
-    fetch('./ilens.json').then(resp => resp.json()).then(d => {
-        data = new O(d);
-        data.each(([tc, points]) => Q('svg').append(
-            E('path', {d: `M${points.join('L')}`, id: tc}),
-        ));
-    }).finally(() => Q('form').oninput());
-
-    let getBearings = () => {
-        let {'--rotate': r, ...param} = fig.get('--rotate', '--E', '--S', '--W');
-        return new O({
-            East:  [              45-r, form.E.value+135-r],
-            South: [form.E.value+135-r, form.S.value+225-r],
-            West:  [form.S.value+225-r, form.W.value+315-r],
-            North: [form.W.value+315-r,               45-r]
+    Q('table').onclick = ev => {
+        let tr = ev.target.closest('tr');
+        tr && [tr, Q(`[id='${tr.firstChild.innerText}']`)].forEach(el => el.classList.toggle('showing'));
+    }
+    Promise.all([fetch('./ilens.json'), fetch('./actual.json')])
+    .then(resps => Promise.all(resps.map(r => r.json())))
+    .then(([points, actual]) => {
+        data.actualSignals = actual;
+        data.points = new O(points);
+        data.points.each(([storm, points]) => {
+            calculate(points);
+            Q('svg').append(E(`path#${storm}`, {d: `M${points.join('L')}`}));
         });
-    }
-    let filter = report => {
-        let cpa = Math.min(...[...report.values()].map(km => Math.round(km ?? 999)));
-        let filtered = report.filter(([dir, km]) => km && (km <= form.south.value || km / cpa < form.ratio.value));
-        filtered.North && (filtered = filtered.filter(([dir, km]) => km && (km <= form.north.value || km / cpa < form.ratio.value)));
-        return [...filtered.keys().map(q => ({E: '🔼', S: '⏫', N: '🔽', W: '⏬'})[q[0]])].join('');
-    }
-    let classify = (points, bearings) => {
+        form.current.value = localStorage.getItem('current') || '';
+        form.current.value && form.current.dispatchEvent(new InputEvent('input', {bubbles: true}));
+        form.oninput();
+    });
+    let calculate = points => {
         let R = 6371;
-        let output = { North: [], South: [], East: [], West: [] };
-        
         let toRadians = deg => deg * Math.PI / 180;
         let hko = [22.302, 114.174].map(toRadians);
-        let cpa = 800;
-        points.forEach(point => {
+        points.forEach((point, i) => {
             point = point.map(toRadians);
             let diff = [point[0] - hko[0], point[1] - hko[1]];
-
             let a = Math.sin(diff[0] / 2) ** 2 + Math.cos(hko[0]) * Math.cos(point[0]) * Math.sin(diff[1] / 2) ** 2;
             let c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            let km = Math.round(R * c);
-            km < cpa && (cpa = km);
-
             let y = Math.sin(diff[1]) * Math.cos(point[0]);
             let x = Math.cos(hko[0]) * Math.sin(point[0]) - Math.sin(hko[0]) * Math.cos(point[0]) * Math.cos(diff[1]);
-            let bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-            let dir = bearings.find(([dir, [from, to]]) => bearing < to && bearing >= from)?.[0] ?? 'North';
-            output[dir].push(km);
+            Object.assign(points[i], {
+                bearing: (Math.atan2(y, x) * 180 / Math.PI + 360) % 360, 
+                distance: Math.round(R * c)
+            });
         });
-        return new O(output).map(([quad, dists]) => [quad, Math.min(...dists)]);
+        return points;
+    }
+    let getBearings = (r = form.rotate.value) => new O({
+        E: [              45-r, form.E.value+135-r],
+        S: [form.E.value+135-r, form.S.value+225-r],
+        W: [form.S.value+225-r, form.W.value+315-r],
+        N: [form.W.value+315-r,               45-r]
+    });
+    let putQuadrants = (points, quadrants) => {
+        let CPAs = { E: 800, S: 800, N: 800, W: 800 };
+        points.forEach(({distance, bearing}) => {
+            let quad = quadrants.find(([dir, [from, to]]) => bearing < to && bearing >= from)?.[0] ?? 'N';
+            distance < CPAs[quad] && (CPAs[quad] = distance);
+        });
+        let cpa = Math.min(...Object.values(CPAs));
+        CPAs = new O(CPAs).filter(([quad, km]) => 
+            km / cpa < form.ratio.value ||
+            (['E','N'].includes(quad) || CPAs.N < 800 && quad == 'W' ? km <= form.north.value : km <= form.south.value)
+        );
+        return [...CPAs.keys()].join('');
     }
 </script>
