@@ -89,7 +89,7 @@ form {
     display: grid; grid-template: 'knobs output' 1.5em 'knobs textarea' / 70% 30%;
 
     drag-knob {
-        margin: 0 .2em;
+        margin: 0 .3em;
     
         br~& {margin-top: 1em;}
         &:is([name=north],[name=south])::before {white-space: nowrap;}
